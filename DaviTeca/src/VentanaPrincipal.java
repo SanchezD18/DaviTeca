@@ -1,4 +1,3 @@
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -127,12 +126,15 @@ public class VentanaPrincipal extends JFrame {
         Component esto = this;
 
         btnConfirmar.addActionListener(e -> {
-
-            String contrasena = new String(txtContrasena.getPassword());
-            Usuarios.registrar(usuario.getText(),contrasena,email.getText(),DNI.getText(),nombre.getText(),apellido.getText(),telefono.getText(),esto);
-            registerDialog.dispose();
-            DaviTeca(usuario.getText(), contrasena, panelPadre);
-            panelPadre.setVisible(false);
+            int telefonoInt = Integer.parseInt(telefono.getText());
+            if(Usuarios.validarDNI(DNI.getText(),esto) && Usuarios.validarEmail(email.getText(),esto) && Usuarios.validarTelefono(telefonoInt,esto)) {
+                telefonoInt = Integer.parseInt(telefono.getText());
+                String contrasena = new String(txtContrasena.getPassword());
+                Usuarios.registrar(usuario.getText(), contrasena, email.getText(), DNI.getText(), nombre.getText(), apellido.getText(), telefonoInt, esto);
+                registerDialog.dispose();
+                DaviTeca(usuario.getText(), contrasena, panelPadre);
+                panelPadre.setVisible(false);}
+            else{JOptionPane.showMessageDialog(esto, "Revisa bien los datos");}
             });
         btnCancelar.addActionListener(e -> registerDialog.dispose());
 
@@ -239,7 +241,7 @@ public class VentanaPrincipal extends JFrame {
         JPanel panelCentro = new JPanel();
         JPanel panelDerecha = new JPanel(cardLayout);
         panelIzquierda.setLayout(new BoxLayout(panelIzquierda,BoxLayout.Y_AXIS));
-        panelIzquierda.setBorder(BorderFactory.createEmptyBorder(150, 10, 50, 10));
+        panelIzquierda.setBorder(BorderFactory.createEmptyBorder(100, 0, 50, 20));
         Font buttonFont = new Font("Arial", Font.BOLD, 12);
 
         panel.add(panelDerecha,BorderLayout.EAST);
@@ -255,11 +257,11 @@ public class VentanaPrincipal extends JFrame {
         btnRegistrar.setPreferredSize(new Dimension(200,80));
         btnRegistrar.setMaximumSize(new Dimension(200,80 ));
         btnRegistrar.setFont(buttonFont);
-        btnRegistrar.addActionListener(e -> Usuarios.menu(usuario, contrasena));
+        btnRegistrar.addActionListener(e -> Usuarios.mostrarPanelRegistrarUsuario(cardLayout,panelDerecha));
         panelIzquierda.add(Box.createRigidArea(new Dimension(50, 50)));
 
         JButton btnCambiarContrasena = new JButton("Cambiar contraseña.");
-        btnCambiarContrasena.addActionListener(e -> JOptionPane.showMessageDialog(this, "pues vale."));
+        btnCambiarContrasena.addActionListener(e -> Usuarios.mostrarPanelCambiarContrasena(cardLayout, panelDerecha));
         btnCambiarContrasena.setPreferredSize(new Dimension(200,80));
         btnCambiarContrasena.setMaximumSize(new Dimension(200,80 ));
         btnCambiarContrasena.setFont(buttonFont);
@@ -268,7 +270,7 @@ public class VentanaPrincipal extends JFrame {
 
         JButton btnActualizarDatos = new JButton("Actualizar datos.");
         panelIzquierda.add(btnActualizarDatos);
-        btnActualizarDatos.addActionListener(e -> Prestamos.devolucion(usuario));
+        btnActualizarDatos.addActionListener(e -> Usuarios.mostrarPanelActualizarDatos(cardLayout, panelDerecha));
         btnActualizarDatos.setPreferredSize(new Dimension(200,80));
         btnActualizarDatos.setMaximumSize(new Dimension(200,80 ));
         btnActualizarDatos.setFont(buttonFont);
@@ -276,7 +278,8 @@ public class VentanaPrincipal extends JFrame {
 
         JButton btnEliminarUsuario = new JButton("Eliminar usuario por ID. (admin)");
         panelIzquierda.add(btnEliminarUsuario);
-        btnEliminarUsuario.addActionListener(e -> Prestamos.devolucion(usuario));
+        btnEliminarUsuario.addActionListener(e -> {if(usuario.equals("admin")){Usuarios.mostrarPanelEliminarUsuario(cardLayout, panelDerecha);}
+        else JOptionPane.showMessageDialog(panel, "Error: No tienes permisos suficientes.", "Error", JOptionPane.ERROR_MESSAGE);});
         btnEliminarUsuario.setPreferredSize(new Dimension(200,80));
         btnEliminarUsuario.setMaximumSize(new Dimension(200,80 ));
         btnEliminarUsuario.setFont(buttonFont);
@@ -284,7 +287,8 @@ public class VentanaPrincipal extends JFrame {
 
         JButton btnSentenciaPersonalizada = new JButton("Sentencia personalizada. (admin)");
         panelIzquierda.add(btnSentenciaPersonalizada);
-        btnSentenciaPersonalizada.addActionListener(e -> Prestamos.devolucion(usuario));
+        btnSentenciaPersonalizada.addActionListener(e -> {if(usuario.equals("admin")){Usuarios.mostrarPanelSentenciaPersonalizada(cardLayout, panelDerecha);}
+        else JOptionPane.showMessageDialog(panel, "Error: No tienes permisos suficientes.", "Error", JOptionPane.ERROR_MESSAGE);});
         btnSentenciaPersonalizada.setPreferredSize(new Dimension(200,80));
         btnSentenciaPersonalizada.setMaximumSize(new Dimension(200,80 ));
         btnSentenciaPersonalizada.setFont(buttonFont);
@@ -303,9 +307,23 @@ public class VentanaPrincipal extends JFrame {
 
         //Panel Derecho
 
-        JPanel panelVacio = crearPanelVacioEntrada();
+        JPanel panelVacio = crearPanelVacio();
         panelDerecha.add(panelVacio, "Vacio");
 
+        JPanel panelRegistrar = Usuarios.crearPanelRegistrarUsuario();
+        panelDerecha.add(panelRegistrar, "RegistrarUsuario");
+
+        JPanel panelContrasena = Usuarios.crearPanelCambiarContrasena(usuario);
+        panelDerecha.add(panelContrasena, "CambiarContrasena");
+
+        JPanel panelActualizarDatos = Usuarios.crearPanelActualizarDatos(usuario);
+        panelDerecha.add(panelActualizarDatos, "ActualizarDatos");
+
+        JPanel panelEliminarUsuario = Usuarios.crearPanelEliminarUsuario(usuario);
+        panelDerecha.add(panelEliminarUsuario, "EliminarUsuario");
+
+        JPanel panelSentenciaPersonalizada = Usuarios.crearPanelSentenciaPersonalizada(usuario);
+        panelDerecha.add(panelSentenciaPersonalizada, "SentenciaPersonalizada");
 
         return panel;}
 
@@ -328,7 +346,6 @@ public class VentanaPrincipal extends JFrame {
         panel.add(panelDerecha,BorderLayout.EAST);
         panel.add(panelCentro,BorderLayout.CENTER);
         panel.add(panelIzquierda,BorderLayout.WEST);
-
 
         //Panel Izquierda
         //Botones tabla Usuarios
@@ -397,7 +414,7 @@ public class VentanaPrincipal extends JFrame {
 
         JButton btnEliminarLibro = new JButton("Eliminar libro por ID.");
         panelIzquierda.add(btnEliminarLibro);
-        btnEliminarLibro.addActionListener(e -> Prestamos.devolucion(usuario));
+        btnEliminarLibro.addActionListener(e -> Libros.mostrarPanelEliminarLibro(cardLayout,panelDerecha));
         btnEliminarLibro.setPreferredSize(new Dimension(200,80));
         btnEliminarLibro.setMaximumSize(new Dimension(200,80 ));
         btnEliminarLibro.setFont(buttonFont);
@@ -405,7 +422,7 @@ public class VentanaPrincipal extends JFrame {
 
         JButton btnConsultarLibro = new JButton("Consultar libro por...");
         panelIzquierda.add(btnConsultarLibro);
-        btnConsultarLibro.addActionListener(e -> Prestamos.devolucion(usuario));
+        btnConsultarLibro.addActionListener(e -> Libros.mostrarPanelConsultarPor(cardLayout,panelDerecha));
         btnConsultarLibro.setPreferredSize(new Dimension(200,80));
         btnConsultarLibro.setMaximumSize(new Dimension(200,80 ));
         btnConsultarLibro.setFont(buttonFont);
@@ -423,10 +440,14 @@ public class VentanaPrincipal extends JFrame {
         JButton btnRefrescar = new JButton("🔁");
         panelCentro.add(btnRefrescar);
         Libros.mostrarTabla(modelo);
+        btnRefrescar.addActionListener(e ->{
+            Libros.mostrarTabla(modelo);
+        });
+
 
         //PANEL DERECHA
         //CardLayout
-        JPanel panelVacio = crearPanelVacioEntrada();
+        JPanel panelVacio = crearPanelVacio();
         panelDerecha.add(panelVacio, "Vacio");
         JPanel panelInsertar = Libros.crearPanelInsertar();
         panelDerecha.add(panelInsertar,"InsertarLibro");
@@ -440,9 +461,20 @@ public class VentanaPrincipal extends JFrame {
         return panel;}
 
     private JPanel crearPanelVacio() {
-        JPanel panel = new JPanel();
-        panel.setBackground(new Color(255, 253, 190));
-        panel.add(new JLabel("Presiona un botón", SwingConstants.CENTER));
+        JPanel panel = new JPanel(new BorderLayout());
+        JPanel panelDerecha = new JPanel();
+        panelDerecha.setBackground(new Color(148, 82, 2));
+        JPanel panelCentro = new JPanel();
+        panelCentro.setBackground(new Color(255, 253, 190));
+        JPanel panelIzquierda = new JPanel();
+        panelIzquierda.setBackground(new Color(148, 82, 2));
+
+        panelCentro.add(new JLabel("Presiona", SwingConstants.LEFT));
+        panelCentro.add(new JLabel("un botón!", SwingConstants.RIGHT));
+
+        panel.add(panelDerecha,BorderLayout.WEST);
+        panel.add(panelCentro,BorderLayout.CENTER);
+        panel.add(panelIzquierda, BorderLayout.EAST);
 
 
 

@@ -2,53 +2,15 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.*;
-import java.util.Objects;
-import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
 public class Usuarios {
-    public static void menu(String usuario, String contrasena){
-        boolean seguir = true;
-        Scanner inputValue = new Scanner(System.in);
-        while(seguir){
-            System.out.println("""
-                        Selecciona una opción:
-                        \
-                        1. Registrar Usuario.
-                        \
-                        2. Listar todos los datos de los usuarios.
-                        \
-                        3. Cambiar contraseña.
-                        \
-                        4. Actualizar algún dato.
-                        \
-                        5. Eliminar usuario por ID. (admin)
-                        \
-                        6. Sentencia personalizada. (admin)
-                        \
-                        0. Salir\s""");
-            int eleccion = inputValue.nextInt();
-            inputValue.nextLine();
-            switch(eleccion){
-                case 0, 1 -> seguir = false;
-                case 2 -> Usuarios.consultarTodo(usuario);
-                case 3 -> Usuarios.cambiarContrasena(usuario, contrasena);
-                case 4 -> Usuarios.actualizarDatos(usuario);
-                case 5 -> Usuarios.eliminar(usuario);
-                case 6 -> Usuarios.sentenciaPersonalizada(usuario);
-                default -> System.out.println("Opción no válida.");}}}
-
-
 
     public static void registrar(String usuario, String contrasena, String email,
-                                 String DNI, String nombre, String apellido, String telefono, Component esto){
+                                 String DNI, String nombre, String apellido, int telefono, Component esto){
         Connection conn = Main.connect();
-        email = validarEmail(email,esto);
-        DNI = validarDNI(DNI,esto);
-        int telefonoInt = Integer.parseInt(telefono);
-        telefonoInt = validarTelefono(telefonoInt,esto);
 
         PreparedStatement pstmt = null;
         PreparedStatement pstmt2 = null;
@@ -70,47 +32,18 @@ public class Usuarios {
             pstmt2.setString(1, DNI);
             pstmt2.setString(2, nombre);
             pstmt2.setString(3, apellido);
-            pstmt2.setInt(4, telefonoInt);
+            pstmt2.setInt(4, telefono);
             pstmt2.setInt(5, id_usuario);
 
 
             int rowsInserted2 = pstmt2.executeUpdate();
-            if (rowsInserted > 0 && rowsInserted2 > 0) {
-                System.out.println("Usuario insertado exitosamente.");
-                System.out.println();}
-
+            if (rowsInserted > 0 && rowsInserted2 > 0) {JOptionPane.showMessageDialog(esto, "Usuario eliminado exitosamente.");}
         Main.disconnect(conn);}
-        catch (Exception e) {System.out.println("Error al insertar usuario y cliente: " + e.getMessage());}
+        catch (Exception e) {JOptionPane.showMessageDialog(esto, "Error al eliminar usuario: " + e.getMessage());}
         finally {
             try {if (pstmt != null) pstmt.close();  if (pstmt2!= null) pstmt2.close();  if (stmt != null) stmt.close();}
             catch (Exception ex) {System.out.println(ex.getMessage());}}}
 
-
-
-    public static void consultarTodo(String usuario) {
-        Statement stmt = null;
-        ResultSet rs = null;
-        Connection conn = Main.connect();
-        try {
-            stmt = conn.createStatement();
-            rs = stmt.executeQuery("SELECT * FROM Usuarios INNER JOIN Clientes ON Usuarios.id_usuario = Clientes.id_usuario");
-
-            while (rs.next()) {
-                System.out.println("ID Usuario: " + rs.getInt("id_usuario") + '\n'
-                        + "Nombre de Usuario: " + rs.getString("usuario") + '\n'
-                        + "Contraseña: " + (Objects.equals(usuario, "admin")?rs.getString("contrasena"):"*********") + '\n'
-                        + "Contacto: " + rs.getString("email") + '\n'
-                        + "DNI: " + (Objects.equals(usuario, "admin")?rs.getString("dni"):"**********") + '\n'
-                        + "Nombre: " + rs.getString("nombre") + '\n'
-                        + "Apellido: " + rs.getString("apellido") + '\n'
-                        + "Teléfono: " + (Objects.equals(usuario, "admin")?rs.getString("telefono"):"**********"));
-                System.out.println();}
-        Main.disconnect(conn);
-        }
-        catch (Exception e) {System.out.println(e.getMessage());}
-        finally {
-            try {if (rs != null) rs.close();    if (stmt != null) stmt.close();}
-            catch (Exception ex) {System.out.println(ex.getMessage());}}}
 
 
     public static void mostrarTabla(String usuario, DefaultTableModel modelo) {
@@ -149,155 +82,95 @@ public class Usuarios {
             catch (Exception ex) {System.out.println(ex.getMessage());}}}
 
 
-    public static void actualizarDatos(String usuario){
-        Scanner inputValue = new Scanner(System.in);
-        Connection conn = Main.connect();
-        consultarTodo(usuario);
-        int id_usuario = obtenerIDUsuario(usuario);
-        PreparedStatement pstmt = null;
-        try {
-            System.out.println("""
-                ¿Qué quieres actualizar?
-                \
-                1. DNI
-                \
-                2. Nombre
-                \
-                3. Apellido
-                \
-                4. Telefono\s
-                """);
+public static void cambiarContrasena(String usuario, String contrasenaAnterior, String contrasenaNueva, Component panel){
+    Connection conn = Main.connect();
+    PreparedStatement pstmt = null;
+    ResultSet rs = null;
 
-            int eleccion = inputValue.nextInt();
-            inputValue.nextLine();
-            String columna;
-            String nuevoValor;
-            switch (eleccion) {
-                case 1 -> {
-                    columna = "dni";
-                    System.out.print("Ingrese el nuevo dni: ");}
-                case 2 -> {
-                    columna = "nombre";
-                    System.out.print("Ingrese el nuevo nombre: ");}
-                case 3 -> {
-                    columna = "apellido";
-                    System.out.print("Ingrese tu nuevo apellido: ");}
-                case 4 -> {
-                    columna = "telefono";
-                    System.out.print("Ingrese su nuevo teléfono: ");}
-                default -> {
-                    System.out.println("Opción no válida.");
-                    return;}}
-            nuevoValor = inputValue.nextLine();
-            String sql = "UPDATE Clientes SET " + columna + " = ? WHERE id_usuario = ?";
+    try {
+        String sql = "SELECT contrasena FROM Usuarios WHERE usuario = ?";
+        pstmt = conn.prepareStatement(sql);
+        pstmt.setString(1, usuario);
+        rs = pstmt.executeQuery();
+
+        if (rs.next()) {
+            String contrasenaActualBD = rs.getString("contrasena");
+
+            if (!contrasenaAnterior.equals(contrasenaActualBD)) {
+                JOptionPane.showMessageDialog(panel, "La contraseña actual es incorrecta", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            sql = "UPDATE Usuarios SET contrasena = ? WHERE usuario = ?";
             pstmt = conn.prepareStatement(sql);
-            pstmt.setString(1, nuevoValor);
-            pstmt.setInt(2, id_usuario);
+            pstmt.setString(1, contrasenaNueva);
+            pstmt.setString(2, usuario);
+
             int rowsUpdated = pstmt.executeUpdate();
             if (rowsUpdated > 0) {
-                System.out.println("Dato actualizados exitosamente.");}
-            else {System.out.println("Error al actualizar tus datos.");}
-            Main.disconnect(conn);
+                JOptionPane.showMessageDialog(panel, "Contraseña cambiada con éxito.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                panel.setVisible(false);
+            } else {
+                JOptionPane.showMessageDialog(panel, "Error al cambiar la contraseña.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
-        catch (Exception e) {System.out.println("Error al actualizar tus datos: " + e.getMessage());}
-        finally {
-            try {if (pstmt != null) pstmt.close();}
-            catch (Exception ex) {System.out.println(ex.getMessage());}}
+    } catch (SQLException ex) {
+        JOptionPane.showMessageDialog(panel, "Error de base de datos: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+    } finally {
+        try {
+            if (rs != null) rs.close();
+            if (pstmt != null) pstmt.close();
+            Main.disconnect(conn);
+        } catch (SQLException ex) {
+            System.out.println("Error al cerrar conexión: " + ex.getMessage());
+        }
     }
+}
 
-
-
-public static void cambiarContrasena(String usuario, String contrasena){
-    Scanner inputValue = new Scanner(System.in);
-    PreparedStatement pstmt = null;
-    Connection conn = Main.connect();
-    try {
-        System.out.println("Introduce tu contraseña anterior: ");
-        String contrasenaComprobar = inputValue.nextLine();
-
-        if (contrasena.equals(contrasenaComprobar)){
-            System.out.println("Introduce la nueva contraseña: ");
-            String nuevoValor = inputValue.nextLine();
-            String sql = "UPDATE Usuarios SET contrasena = ? WHERE usuario =\"" + usuario + "\"";
-            pstmt = conn.prepareStatement(sql);
-            pstmt.setString(1, nuevoValor);
-
-        int rowsUpdated = pstmt.executeUpdate();
-        if (rowsUpdated > 0) {System.out.println("Contraseña actualizada correctamente.");}
-        else {System.out.println("La contraseña anterior es errónea.");}}
-    Main.disconnect(conn);
-    }
-
-    catch (Exception e) {System.out.println("Error al actualizar la contraseña: " + e.getMessage());}
-    finally {
-        try {if (pstmt != null) pstmt.close();}
-        catch (Exception ex) {System.out.println(ex.getMessage());}}}
-
-
-
-    public static void eliminar(String usuario){
+    public static void eliminarInterfaz(String id, Component esto, String usuario){
         Connection conn = Main.connect();
-        Scanner inputValue = new Scanner(System.in);
-        String eleccion;
-        if (usuario.equals("admin")){
-        consultarTodo(usuario);
-        System.out.print("Ingrese el ID del usuario que desea eliminar: ");
-        int id = inputValue.nextInt();
-        inputValue.nextLine();
+        int numId = Integer.parseInt(id);
         PreparedStatement pstmt = null;
         PreparedStatement pstmt2 = null;
         try {
-            String sql = "DELETE FROM Usuarios WHERE id_usuario = ?";
+            if (usuario.equals("admin")){
+                String sql = "DELETE FROM Usuarios WHERE id_usuario = ?";
             pstmt = conn.prepareStatement(sql);
-            pstmt.setInt(1, id);
+            pstmt.setInt(1, numId);
 
-            System.out.println("Quieres eliminar también los datos de cliente?  S/N ");
-            eleccion = inputValue.nextLine();
-            if (eleccion.equalsIgnoreCase("s")){
                 String sql2 = "DELETE FROM Clientes WHERE id_usuario = ?";
                 pstmt2 = conn.prepareStatement(sql2);
-                pstmt2.setInt(1, id);
+                pstmt2.setInt(1, numId);
                 pstmt2.executeUpdate();}
-            else{System.out.println("De acuerdo.");}
 
             int rowsDeleted = pstmt.executeUpdate();
-            if (rowsDeleted > 0) {System.out.println("Usuario eliminado exitosamente.");}
-            else {System.out.println("No se encontró un usuario con el ID proporcionado.");}
-
-        Main.disconnect(conn);}
-
-        catch (Exception e) {System.out.println("Error al eliminar usuario: " + e.getMessage());}
+            if (rowsDeleted > 0) {JOptionPane.showMessageDialog(esto, "Usuario eliminado exitosamente.");}
+            else {JOptionPane.showMessageDialog(esto,"No se encontró un Usuario con el ID proporcionado.");}}
+        catch (Exception e) {JOptionPane.showMessageDialog(esto, "Error al eliminar usuario: " + e.getMessage());}
         finally {
-            try {if (pstmt != null && pstmt2!= null){ pstmt.close();  pstmt2.close();}}
+            try {if (pstmt != null) pstmt.close();}
             catch (Exception ex) {System.out.println(ex.getMessage());}}}
-        else System.out.println("No tienes permisos suficientes.");}
 
 
-
-        public static void sentenciaPersonalizada(String usuario){
-            Connection conn = Main.connect();
-            Statement stmt = null;
-            ResultSet rs = null;
-            Scanner inputValue = new Scanner(System.in);
-            try {
-                if (usuario.equals("admin")){
-                    System.out.println("Introduce la sentencia a realizar: ");
-                String sentencia = inputValue.nextLine();
+    public static void sentenciaPersonalizadaInterfaz(String sentencia, Component esto, String usuario){
+        Connection conn = Main.connect();
+        Statement stmt = null;
+        ResultSet rs = null;
+        try {
+            if (usuario.equals("admin")){
                 stmt = conn.createStatement();
                 rs = stmt.executeQuery(sentencia);
-                }
-                else System.out.println("No eres administrador.");
-                Main.disconnect(conn);
-            } catch (Exception e) {
-                System.out.println(e.getMessage());
-            } finally {
-                try {
-                    if (rs != null) rs.close();
-                    if (stmt != null) stmt.close();
-                } catch (Exception ex) {
-                    System.out.println(ex.getMessage());}}}
-
-
+            }
+            else System.out.println("No eres administrador.");
+            Main.disconnect(conn);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (stmt != null) stmt.close();
+            } catch (Exception ex) {
+                System.out.println(ex.getMessage());}}}
 
     public static boolean login(String usuario, String contrasena){
         Connection conn = Main.connect();
@@ -322,41 +195,31 @@ public static void cambiarContrasena(String usuario, String contrasena){
         return false;}
 
 
-public static String validarDNI(String dni, Component esto){
+public static boolean validarDNI(String dni, Component esto){
     String regex = "^[a-zA-Z0-9]{9,10}$";
     Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
     Matcher matcher = pattern.matcher(dni);
     boolean matchFound = matcher.find();
-    while (!matchFound){
-        if(matchFound) {matchFound = true;}
-        else {
-            JOptionPane.showMessageDialog(esto,"Error en el DNI (formato 00000000X)");
-            break;
-        }}
-    return dni;}
+        if(!matchFound) {JOptionPane.showMessageDialog(esto,"DNI inválido. Formato: 00000000X");
+            return false;}
+    return true;}
 
 
-    public static String validarEmail(String email, Component esto){
+    public static boolean validarEmail(String email, Component esto){
         String regex = "^[a-z]+[0-9]{0,2}@[a-z]+\\.[a-z]{2,3}$";
         Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(email);
         boolean matchFound = matcher.find();
-        while (!matchFound){
-            if(matchFound) {matchFound = true;}
-            else {JOptionPane.showMessageDialog(esto, "Error en el email. (formato algo@ejemplo.com)");
-                break;
-            }}
-        return email;}
+            if(!matchFound) {JOptionPane.showMessageDialog(esto, "Email inválido. Formato: algo@ejemplo.com");
+                return false;}
+        return true;}
 
 
-    public static int validarTelefono(int telefono, Component esto){
-        boolean correcto = false;
-        while(!correcto){
+    public static boolean validarTelefono(int telefono, Component esto){
             if (telefono < 600000000 || telefono > 799999999){
            JOptionPane.showMessageDialog(esto, "Telefono no válido. (formato 600000000");
-            break;}
-            else {correcto = true;}}
-        return telefono;}
+            return false;}
+        return true;}
 
 
     public static int obtenerIDUsuario(String usuario){
@@ -379,4 +242,287 @@ public static String validarDNI(String dni, Component esto){
                 if (stmt != null) stmt.close();}
             catch (Exception ex) {System.out.println(ex.getMessage());}}
     return 0;}
+
+
+
+    public static JPanel crearPanelRegistrarUsuario(){
+        JPanel panel = new JPanel();
+        panel.setBackground(new Color(255, 253, 208));
+        Font buttonFont = new Font("Arial", Font.BOLD, 12);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 25, 50, 25));
+        panel.add(Box.createRigidArea(new Dimension(200, 50)));
+
+        JTextField campoUsuario = new JTextField(10);
+        campoUsuario.setPreferredSize(new Dimension(200,40));
+        campoUsuario.setMaximumSize(new Dimension(200,40));
+
+        JTextField campoContrasena = new JTextField(10);
+        campoContrasena.setPreferredSize(new Dimension(200,40));
+        campoContrasena.setMaximumSize(new Dimension(200,40));
+
+        JTextField campoEmail = new JTextField(10);
+        campoEmail.setPreferredSize(new Dimension(200,40));
+        campoEmail.setMaximumSize(new Dimension(200,40));
+
+        JTextField campoDNI = new JTextField(10);
+        campoDNI.setPreferredSize(new Dimension(200,40));
+        campoDNI.setMaximumSize(new Dimension(200,40));
+
+        JTextField campoNombre = new JTextField(10);
+        campoNombre.setPreferredSize(new Dimension(200,40));
+        campoNombre.setMaximumSize(new Dimension(200,40));
+
+        JTextField campoApellido = new JTextField(10);
+        campoApellido.setPreferredSize(new Dimension(200,40));
+        campoApellido.setMaximumSize(new Dimension(200,40));
+
+        JTextField campoTelefono = new JTextField(10);
+        campoTelefono.setPreferredSize(new Dimension(200,40));
+        campoTelefono.setMaximumSize(new Dimension(200,40));
+
+
+
+        JButton btnInsertar = new JButton("Registrar");
+        btnInsertar.setPreferredSize(new Dimension(90,30));
+        btnInsertar.setMaximumSize(new Dimension(90,30));
+        btnInsertar.setFont(buttonFont);
+
+        JButton btnCancelar = new JButton("Cancelar");
+        btnCancelar.setPreferredSize(new Dimension(90, 30));
+        btnCancelar.setMaximumSize(new Dimension(90,30 ));
+        btnCancelar.setFont(buttonFont);
+
+
+        panel.add(new JLabel("Usuario:"));
+        panel.add(campoUsuario);
+        panel.add(Box.createRigidArea(new Dimension(100, 20)));
+        panel.add(new JLabel("Contraseña:"));
+        panel.add(campoContrasena);
+        panel.add(Box.createRigidArea(new Dimension(100, 20)));
+        panel.add(new JLabel("Email:"));
+        panel.add(campoEmail);
+        panel.add(Box.createRigidArea(new Dimension(100, 20)));
+        panel.add(new JLabel("DNI:"));
+        panel.add(campoDNI);
+        panel.add(Box.createRigidArea(new Dimension(100, 20)));
+        panel.add(new JLabel("Nombre:"));
+        panel.add(campoNombre);
+        panel.add(Box.createRigidArea(new Dimension(100, 20)));
+        panel.add(new JLabel("Apellido:"));
+        panel.add(campoApellido);
+        panel.add(Box.createRigidArea(new Dimension(100, 20)));
+        panel.add(new JLabel("Teléfono:"));
+        panel.add(campoTelefono);
+        panel.add(Box.createRigidArea(new Dimension(100, 50)));
+
+        JPanel panelDebajo = new JPanel();
+        panelDebajo.setLayout(new BoxLayout(panelDebajo,BoxLayout.X_AXIS));
+        panelDebajo.add(btnInsertar);
+        panelDebajo.add(btnCancelar);
+        panel.add(panelDebajo);
+
+
+        btnInsertar.addActionListener(e ->{
+            int telefonoInt = Integer.parseInt(campoTelefono.getText());
+            if(Usuarios.validarDNI(campoDNI.getText(),panel) && Usuarios.validarEmail(campoEmail.getText(),panel) && Usuarios.validarTelefono(telefonoInt,panel)) {
+                telefonoInt = Integer.parseInt(campoTelefono.getText());
+                Usuarios.registrar(campoUsuario.getText(), campoContrasena.getText(), campoEmail.getText(), campoDNI.getText(), campoNombre.getText(), campoApellido.getText(), telefonoInt, panel);}
+            else{JOptionPane.showMessageDialog(panel, "Revisa bien los datos");}
+            campoUsuario.setText("");
+            campoContrasena.setText("");
+            campoEmail.setText("");
+            campoDNI.setText("");
+            campoNombre.setText("");
+            campoApellido.setText("");
+            campoTelefono.setText("");
+        });
+        btnCancelar.addActionListener(e -> panel.setVisible(false));
+        return panel;}
+
+
+    public static JPanel crearPanelCambiarContrasena(String usuario){
+        JPanel panel = new JPanel();
+        panel.setBackground(new Color(255, 253, 208));
+        Font buttonFont = new Font("Arial", Font.BOLD, 12);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createEmptyBorder(30, 25, 50, 25));
+        panel.add(Box.createRigidArea(new Dimension(200, 20)));
+        JPanel panelTitulo = new JPanel();
+        panelTitulo.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
+
+        JPasswordField campoContrasenaAnterior = new JPasswordField(5);
+        campoContrasenaAnterior.setPreferredSize(new Dimension(200,30));
+        campoContrasenaAnterior.setMaximumSize(new Dimension(200,30));
+
+        JPasswordField campoContrasenaNueva = new JPasswordField(5);
+        campoContrasenaNueva.setPreferredSize(new Dimension(200,30));
+        campoContrasenaNueva.setMaximumSize(new Dimension(200,30));
+
+        JPasswordField campoContrasenaNueva2 = new JPasswordField(5);
+        campoContrasenaNueva2.setPreferredSize(new Dimension(200,30));
+        campoContrasenaNueva2.setMaximumSize(new Dimension(200,30));
+
+        JButton btnCambiar = new JButton("Cambiar");
+        btnCambiar.setPreferredSize(new Dimension(90,30));
+        btnCambiar.setMaximumSize(new Dimension(90,30));
+        btnCambiar.setFont(buttonFont);
+
+        JButton btnCancelar = new JButton("Cancelar");
+        btnCancelar.setPreferredSize(new Dimension(90, 30));
+        btnCancelar.setMaximumSize(new Dimension(90,30 ));
+        btnCancelar.setFont(buttonFont);
+
+        panel.add(new JLabel("Contraseña"));
+        panel.add(new JLabel("Anterior:"));
+        panel.add(campoContrasenaAnterior);
+        panel.add(Box.createRigidArea(new Dimension(200, 40)));
+        panel.add(new JLabel("Contraseña"));
+        panel.add(new JLabel("Nueva:"));
+        panel.add(campoContrasenaNueva);
+        panel.add(Box.createRigidArea(new Dimension(200, 40)));
+        panel.add(new JLabel("Confirmación"));
+        panel.add(new JLabel("Nueva"));
+        panel.add(new JLabel("Contraseña:"));
+        panel.add(campoContrasenaNueva2);
+        panel.add(Box.createRigidArea(new Dimension(200, 40)));
+
+        JPanel panelDebajo = new JPanel();
+        panelDebajo.setLayout(new BoxLayout(panelDebajo,BoxLayout.X_AXIS));
+        panelDebajo.add(btnCambiar);
+        panelDebajo.add(btnCancelar);
+        panel.add(panelDebajo);
+
+        btnCambiar.addActionListener(e ->{
+            String contrasenaAnterior = new String(campoContrasenaAnterior.getPassword());
+            String contrasenaNueva = new String(campoContrasenaNueva.getPassword());
+            String contrasenaNueva2 = new String(campoContrasenaNueva2.getPassword());
+            if (contrasenaAnterior.isEmpty() || contrasenaNueva.isEmpty() || contrasenaNueva2.isEmpty()) {
+                JOptionPane.showMessageDialog(panel, "Todos los campos son obligatorios.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            if (!contrasenaNueva.equals(contrasenaNueva2)) {
+                JOptionPane.showMessageDialog(panel, "Las contraseñas nuevas no coinciden.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            if (contrasenaNueva.equals(contrasenaAnterior)) {
+                JOptionPane.showMessageDialog(panel, "La contraseña nueva debe ser diferente a la actual.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            Usuarios.cambiarContrasena(usuario, contrasenaAnterior,contrasenaNueva, panel);
+            panel.setVisible(false);
+        });
+        btnCancelar.addActionListener(e -> panel.setVisible(false));
+        return panel;}
+
+    public static JPanel crearPanelActualizarDatos(String usuario){
+        int idUsuario = obtenerIDUsuario(usuario);
+
+
+        JPanel panel = new JPanel();
+        panel.setBackground(new Color(255, 253, 208));
+        return panel;}
+
+    public static JPanel crearPanelEliminarUsuario(String usuario){
+        JPanel panel = new JPanel();
+        panel.setBackground(new Color(255, 253, 208));
+        Font buttonFont = new Font("Arial", Font.BOLD, 12);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createEmptyBorder(30, 25, 50, 25));
+        panel.add(Box.createRigidArea(new Dimension(200, 20)));
+        JPanel panelTitulo = new JPanel();
+        panelTitulo.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
+
+        JTextField campoID = new JTextField(10);
+        campoID.setPreferredSize(new Dimension(200,40));
+        campoID.setMaximumSize(new Dimension(200,40));
+
+        JButton btnEliminar = new JButton("Eliminar");
+        btnEliminar.setPreferredSize(new Dimension(90,30));
+        btnEliminar.setMaximumSize(new Dimension(90,30));
+        btnEliminar.setFont(buttonFont);
+
+        JButton btnCancelar = new JButton("Cancelar");
+        btnCancelar.setPreferredSize(new Dimension(90, 30));
+        btnCancelar.setMaximumSize(new Dimension(90,30 ));
+        btnCancelar.setFont(buttonFont);
+
+        panel.add(new JLabel("ID:"));
+        panel.add(campoID);
+        panel.add(Box.createRigidArea(new Dimension(200, 40)));
+
+        JPanel panelDebajo = new JPanel();
+        panelDebajo.setLayout(new BoxLayout(panelDebajo,BoxLayout.X_AXIS));
+        panelDebajo.add(btnEliminar);
+        panelDebajo.add(btnCancelar);
+        panel.add(panelDebajo);
+
+        btnEliminar.addActionListener(e ->{
+            Usuarios.eliminarInterfaz(campoID.getText(), panel, usuario);
+            campoID.setText("");
+            panel.setVisible(false);
+        });
+        btnCancelar.addActionListener(e -> panel.setVisible(false));
+        return panel;}
+
+    public static JPanel crearPanelSentenciaPersonalizada(String usuario){
+        JPanel panel = new JPanel();
+        panel.setBackground(new Color(255, 253, 208));
+        Font buttonFont = new Font("Arial", Font.BOLD, 12);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createEmptyBorder(30, 25, 50, 25));
+        panel.add(Box.createRigidArea(new Dimension(200, 20)));
+        JPanel panelTitulo = new JPanel();
+        panelTitulo.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
+
+        JTextField campoSentencia = new JTextField(10);
+        campoSentencia.setPreferredSize(new Dimension(200,40));
+        campoSentencia.setMaximumSize(new Dimension(200,40));
+
+        JButton btnEliminar = new JButton("Ejecutar");
+        btnEliminar.setPreferredSize(new Dimension(90,30));
+        btnEliminar.setMaximumSize(new Dimension(90,30));
+        btnEliminar.setFont(buttonFont);
+
+        JButton btnCancelar = new JButton("Cancelar");
+        btnCancelar.setPreferredSize(new Dimension(90, 30));
+        btnCancelar.setMaximumSize(new Dimension(90,30 ));
+        btnCancelar.setFont(buttonFont);
+
+        JLabel sentencia = new JLabel("Sentencia:");
+        sentencia.setFont(new Font("Arial", Font.BOLD,13));
+        panel.add(sentencia);
+        panel.add(campoSentencia);
+        panel.add(Box.createRigidArea(new Dimension(200, 40)));
+
+        JPanel panelDebajo = new JPanel();
+        panelDebajo.setLayout(new BoxLayout(panelDebajo,BoxLayout.X_AXIS));
+        panelDebajo.add(btnEliminar);
+        panelDebajo.add(btnCancelar);
+        panel.add(panelDebajo);
+
+        btnEliminar.addActionListener(e ->{
+            Usuarios.sentenciaPersonalizadaInterfaz(campoSentencia.getText(), panel, usuario);
+            campoSentencia.setText("");
+            panel.setVisible(false);
+        });
+        btnCancelar.addActionListener(e -> panel.setVisible(false));
+        return panel;}
+
+
+    public static void mostrarPanelRegistrarUsuario(CardLayout cardLayout, JPanel panel){
+        cardLayout.show(panel, "RegistrarUsuario");}
+
+    public static void mostrarPanelCambiarContrasena(CardLayout cardLayout, JPanel panel){
+        cardLayout.show(panel,"CambiarContrasena");}
+
+    public static void mostrarPanelActualizarDatos(CardLayout cardLayout, JPanel panel){
+        cardLayout.show(panel,"ActualizarDatos");}
+
+    public static void mostrarPanelEliminarUsuario(CardLayout cardLayout, JPanel panel){
+        cardLayout.show(panel, "EliminarUsuario");}
+
+    public static void mostrarPanelSentenciaPersonalizada(CardLayout cardLayout, JPanel panel){
+        cardLayout.show(panel, "SentenciaPersonalizada");}
+
 }
