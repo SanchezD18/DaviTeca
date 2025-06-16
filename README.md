@@ -1,2 +1,2 @@
 # DaviTeca
-Programa echo con SWING en Java, para gestionar libros.
+Programa echo con SWING en Java, para gestionar tu propia biblioteca de libros.
